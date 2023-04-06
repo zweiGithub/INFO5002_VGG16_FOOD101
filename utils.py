@@ -9,10 +9,11 @@ def save_model(model:torch.nn.Module,
                save_path:str):
   
   state_dict = model.state_dict()
+  optimizer_dict = optimizer.state_dict() if optimizer is not None else None
 
   torch.save({'model_state_dict':state_dict,
               'iteration':iteration,
-              'optimizer':optimizer,
+              'optimizer':optimizer_dict,
               'learning_rate':learning_rate},
               save_path)
   
@@ -31,7 +32,7 @@ def load_model(model:torch.nn.Module,
   learning_rate = checkpoint_dict['learning_rate']
 
   if optimizer is not None and checkpoint_dict['optimizer'] is not None:
-    optimizer = checkpoint_dict['optimizer']
+    optimizer.load_state_dict(checkpoint_dict['optimizer'])
 
   model.load_state_dict(checkpoint_dict['model_state_dict'])
 

@@ -12,8 +12,10 @@ from timeit import default_timer as timer
 from tqdm.auto import tqdm
 from modules import VGG16
 from torch.cuda.amp import autocast, GradScaler
-#from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 import utils
+
+global_step = 0
 
 def main():
   
@@ -21,14 +23,14 @@ def main():
 
   # Define the necessary data transforms
   train_transforms = transforms.Compose([
-    transforms.RandomResizedCrop(224),
+    transforms.Resize(size = (224,224)),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
   ])
 
   val_transforms = transforms.Compose([
-    transforms.Resize(224),
+    transforms.Resize(size = (224,224)),
     transforms.ToTensor(),
   ])
 
@@ -54,12 +56,14 @@ def main():
   torch.cuda.manual_seed(42)
 
   train_time_start = timer()
-
+  global global_step
   #init the model
   current_model = VGG16(num_classes=len(class_names)).to(device)
 
+  writer = SummaryWriter(log_dir=".\logs")
+  writer_eval = SummaryWriter(log_dir=".\logs\eval")
 
-  epochs =10
+  epochs =30
   module_dir = ".\models"
 
   # Define the loss function and optimizer
@@ -74,9 +78,11 @@ def main():
                                               learning_rate=0.1,
                                               save_path=latest_checkpoint)
     epoch_str = max(1, int(epoch_str))
+    global_step = (epoch_str-1) * len(train_loader)
   except:
     print("No checkpoint found, training from scratch")
     epoch_str = 0
+    global_step = 0
     pass
 
   # Define a learning rate scheduler
@@ -92,7 +98,8 @@ def main():
               device=device,
               epoch=epoch,
               scheduler=scheduler,
-              model_dir=module_dir)
+              model_dir=module_dir,
+              writers=[writer,writer_eval])
 
     scheduler.step()
 
@@ -107,10 +114,13 @@ def train_and_evaluate(model: torch.nn.Module,
                device: torch.device,
                epoch: int,
                scheduler: torch.optim.lr_scheduler,
-               model_dir: str):
+               model_dir: str,
+               writers: list):
    
     train_loss, train_acc = 0, 0
     train_loader , eval_loader= loaders
+    writer, writer_eval = writers
+    global global_step
 
     model.train()
     # Create a GradScaler instance for automatic scaling of gradients
@@ -127,9 +137,10 @@ def train_and_evaluate(model: torch.nn.Module,
 
             # 2. Calculate loss
             loss = loss_fn(y_pred, y)
+            acc = accuracy_fn(y, y_pred.argmax(dim=1))
 
         train_loss += loss.item()
-        train_acc += accuracy_fn(y, y_pred.argmax(dim=1))
+        train_acc += acc.item()
 
         # 3. Optimizer zero grad
         optimizer.zero_grad()
@@ -143,32 +154,38 @@ def train_and_evaluate(model: torch.nn.Module,
         # 6. Update the scaler
         scaler.update()
 
-        if batch % 400 == 0:
-          print(f"\nLook at batch: {batch}/{len(train_loader)}")
+        if global_step % 1000 == 0 and global_step != 0:
+          # 7. add loss and accuracy to tensorboard
+          print(f"\nTrain epoch :{epoch} [{100.*batch/len(train_loader):.0f}%]")
+          eval_model(model=model,
+                data_loader=eval_loader,
+                loss_fn=loss_fn,
+                accuracy_fn=accuracy_fn,
+                device=device,
+                writer=writer_eval)
+
+          utils.save_model(model=model,
+                optimizer=optimizer,
+                learning_rate=scheduler.get_last_lr()[0],
+                iteration=epoch,
+                save_path=f"{model_dir}\{model.__class__.__name__}_{global_step}.pth")
+        global_step += 1
 
     # Divide total train loss by length of train dataloader
     train_loss /= len(train_loader)
     train_acc /= len(train_loader)
-    print(f"Train Loss: {train_loss:.5f} | Train Acc: {train_acc:.2f}% | learning rate: {optimizer.param_groups[0]['lr']:.5f}")
+    writer.add_scalar("Loss/train", train_loss, global_step)
+    writer.add_scalar("Accuracy/train", train_acc, global_step)
+    writer.add_scalar("Learning Rate", scheduler.get_last_lr()[0], global_step)
+    print(f"\nTrain Loss: {train_loss:.5f} | Train Acc: {train_acc:.2f}% | learning rate: {optimizer.param_groups[0]['lr']:.5f}")
 
-    if epoch % 5 == 0:
-      eval_summary = eval_model(model=model,
-                data_loader=eval_loader,
-                loss_fn=loss_fn,
-                accuracy_fn=accuracy_fn,
-                device=device)
-      print(eval_summary)
-      utils.save_model(model=model,
-                optimizer=optimizer,
-                learning_rate=scheduler.get_last_lr()[0],
-                iteration=epoch,
-                save_path=f"{model_dir}\{model.__class__.__name__}_{epoch}.pth")
 
 def eval_model(model:torch.nn.Module,
                data_loader:torch.utils.data.DataLoader,
                loss_fn:torch.nn.Module,
                accuracy_fn,
-               device):
+               device,
+               writer:SummaryWriter):
   loss,acc = 0,0
   model.eval()
   with torch.inference_mode():
@@ -182,9 +199,8 @@ def eval_model(model:torch.nn.Module,
     loss /= len(data_loader)
     acc /= len(data_loader)
   
-  return {"model_name":model.__class__.__name__,
-          "model_loss":loss.item(),
-          "model_acc": acc.item()}
+  writer.add_scalar("Loss/eval", loss, global_step)
+  writer.add_scalar("Accuracy/eval", acc, global_step)
 
 def print_train_time(start:float,
                      end:float,
