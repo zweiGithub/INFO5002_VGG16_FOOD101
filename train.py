@@ -65,11 +65,11 @@ def main():
   #init the model
   current_model = VGG16(num_classes=len(class_names)).to(device)
 
-  writer = SummaryWriter(log_dir=f"{current_pwd}\logs")
-  writer_eval = SummaryWriter(log_dir=f"{current_pwd}\logs\eval")
+  writer = SummaryWriter(log_dir=f"{current_pwd}/logs")
+  writer_eval = SummaryWriter(log_dir=f"{current_pwd}/logs/eval")
 
   epochs =50
-  module_dir = f"{current_pwd}\checkpoints"
+  module_dir = f"{current_pwd}/checkpoints"
 
   # Define the loss function and optimizer
   loss_fn = nn.CrossEntropyLoss()
