@@ -36,11 +36,13 @@ def main():
     transforms.ToTensor(),
   ])
 
-  # Download and load the Food 101 dataset
-  food_train = Food101(root='./data', split='train', download=True, transform=train_transforms)
-  food_test = Food101(root='./data', split='test', download=True, transform=val_transforms)
+  current_pwd = os.getcwd()
 
-  class_names,class_idx = utils.find_classes("./data/food-101/images")
+  # Download and load the Food 101 dataset
+  food_train = Food101(root=f'{current_pwd}/data', split='train', download=True, transform=train_transforms)
+  food_test = Food101(root=f'{current_pwd}/data', split='test', download=True, transform=val_transforms)
+
+  class_names,class_idx = utils.find_classes(f"{current_pwd}/data/food-101/images")
   # print(f"Class names: {len(class_names)}")
 
   num_workers = os.cpu_count()
@@ -63,11 +65,11 @@ def main():
   #init the model
   current_model = VGG16(num_classes=len(class_names)).to(device)
 
-  writer = SummaryWriter(log_dir=".\logs")
-  writer_eval = SummaryWriter(log_dir=".\logs\eval")
+  writer = SummaryWriter(log_dir=f"{current_pwd}\logs")
+  writer_eval = SummaryWriter(log_dir=f"{current_pwd}\logs\eval")
 
   epochs =50
-  module_dir = ".\checkpoints"
+  module_dir = f"{current_pwd}\checkpoints"
 
   # Define the loss function and optimizer
   loss_fn = nn.CrossEntropyLoss()
