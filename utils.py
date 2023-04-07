@@ -87,7 +87,7 @@ def display_random_image(
   if seed:
     random.seed(seed)
   random_samples_idx = random.sample(range(len(dataset)), num_images)
-  fig = plt.figure(figsize=(40, 40))
+  fig = plt.figure(figsize=(10, 10))
   nrows = 3
   ncols = 3
   i = 0

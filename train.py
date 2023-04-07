@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 import utils
 
 global_step = 0
-INTERVAL_STEPS = 10000
+INTERVAL_STEPS = 5000
 BATCH_SIZE = 64
 
 def main():
