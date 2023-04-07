@@ -16,6 +16,8 @@ from torch.utils.tensorboard import SummaryWriter
 import utils
 
 global_step = 0
+INTERVAL_STEPS = 10000
+BATCH_SIZE = 64
 
 def main():
   
@@ -38,16 +40,17 @@ def main():
   food_train = Food101(root='./data', split='train', download=True, transform=train_transforms)
   food_test = Food101(root='./data', split='test', download=True, transform=val_transforms)
 
-  class_names = food_train.classes
+  class_names,class_idx = utils.find_classes("./data/food-101/images")
+  # print(f"Class names: {len(class_names)}")
 
-  batch_size = 64
   num_workers = os.cpu_count()
 
   # Create the data loaders
-  train_loader = DataLoader(food_train, batch_size=batch_size, shuffle=True,num_workers=num_workers)
-  test_loader = DataLoader(food_test, batch_size=batch_size, shuffle=False,num_workers=num_workers)
+  train_loader = DataLoader(food_train,batch_size=BATCH_SIZE, shuffle=True,num_workers=num_workers)
+  test_loader = DataLoader(food_test, batch_size=BATCH_SIZE, shuffle=False,num_workers=num_workers)
   # Define accuracy function
-  accuracy_fn = Accuracy(task="multiclass", num_classes=len(class_names)).to(device)
+  # accuracy_fn = Accuracy(task="multiclass", num_classes=len(class_names)).to(device)
+  accuracy_fn = utils.accuracy_fn
 
 
   #************STRAT THE TRAINING***************#
@@ -99,12 +102,14 @@ def main():
               epoch=epoch,
               scheduler=scheduler,
               model_dir=module_dir,
-              writers=[writer,writer_eval])
+              writers=[writer,writer_eval],
+              datasets=food_test,
+              class_names=class_names)
 
     scheduler.step()
 
   train_time_end= timer()
-  print_train_time(train_time_start,train_time_end,device)
+  utils.print_train_time(train_time_start,train_time_end,device)
   
 def train_and_evaluate(model: torch.nn.Module,
                loaders: list,
@@ -115,7 +120,9 @@ def train_and_evaluate(model: torch.nn.Module,
                epoch: int,
                scheduler: torch.optim.lr_scheduler,
                model_dir: str,
-               writers: list):
+               writers: list,
+               datasets:dict,
+               class_names: list):
    
     train_loss, train_acc = 0, 0
     train_loader , eval_loader= loaders
@@ -140,7 +147,7 @@ def train_and_evaluate(model: torch.nn.Module,
             acc = accuracy_fn(y, y_pred.argmax(dim=1))
 
         train_loss += loss.item()
-        train_acc += acc.item()
+        train_acc += acc
 
         # 3. Optimizer zero grad
         optimizer.zero_grad()
@@ -154,7 +161,7 @@ def train_and_evaluate(model: torch.nn.Module,
         # 6. Update the scaler
         scaler.update()
 
-        if global_step % 1000 == 0 and global_step != 0:
+        if global_step % INTERVAL_STEPS == 0 and global_step != 0:
           # 7. add loss and accuracy to tensorboard
           print(f"\nTrain epoch :{epoch} [{100.*batch/len(train_loader):.0f}%]")
           eval_model(model=model,
@@ -162,7 +169,9 @@ def train_and_evaluate(model: torch.nn.Module,
                 loss_fn=loss_fn,
                 accuracy_fn=accuracy_fn,
                 device=device,
-                writer=writer_eval)
+                writer=writer_eval,
+                datasets=datasets,
+                class_names=class_names,)
 
           utils.save_model(model=model,
                 optimizer=optimizer,
@@ -175,7 +184,7 @@ def train_and_evaluate(model: torch.nn.Module,
     train_loss /= len(train_loader)
     train_acc /= len(train_loader)
     writer.add_scalar("Loss/train", train_loss, global_step)
-    writer.add_scalar("Accuracy/train", train_acc, global_step)
+    writer.add_scalar("Accuracy/train(%)", train_acc, global_step)
     writer.add_scalar("Learning Rate", scheduler.get_last_lr()[0], global_step)
     print(f"\nTrain Loss: {train_loss:.5f} | Train Acc: {train_acc:.2f}% | learning rate: {optimizer.param_groups[0]['lr']:.5f}")
 
@@ -185,7 +194,9 @@ def eval_model(model:torch.nn.Module,
                loss_fn:torch.nn.Module,
                accuracy_fn,
                device,
-               writer:SummaryWriter):
+               writer:SummaryWriter,
+               datasets:dict,
+               class_names:list):
   loss,acc = 0,0
   model.eval()
   with torch.inference_mode():
@@ -200,14 +211,9 @@ def eval_model(model:torch.nn.Module,
     acc /= len(data_loader)
   
   writer.add_scalar("Loss/eval", loss, global_step)
-  writer.add_scalar("Accuracy/eval", acc, global_step)
+  writer.add_scalar("Accuracy/eval(%)", acc, global_step)
+  writer.add_figure("Predictions vs. actuals",figure = utils.display_random_image(model=model,dataset=datasets,class_names=class_names,device=device),global_step=global_step)
 
-def print_train_time(start:float,
-                     end:float,
-                     device:torch.device=None):
-  total_time=end-start
-  print(f"Train time on {device}: {total_time:.3f} seconds")
-  return total_time
 
 if __name__ == "__main__":
   main()
