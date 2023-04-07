@@ -71,7 +71,8 @@ def main():
 
   # Define the loss function and optimizer
   loss_fn = nn.CrossEntropyLoss()
-  optimizer = optim.SGD(current_model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
+  # optimizer = optim.SGD(current_model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
+  optimizer = optim.Adam(current_model.parameters(), lr=0.001)
 
   try:
     # Load the latest checkpoint
@@ -89,7 +90,8 @@ def main():
     pass
 
   # Define a learning rate scheduler
-  scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+  # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+  scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95, last_epoch=global_step -2)
 
   # start training loop
   for epoch in tqdm(range(epoch_str,epochs + 1)):
