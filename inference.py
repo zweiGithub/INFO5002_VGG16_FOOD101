@@ -23,7 +23,7 @@ def run_inference():
     #Load the model
     model = VGG16(num_classes=101)
     #Load the latest checkpoint
-    model,_,_,_ = utils.load_model(model, None, 0.001, utils.latest_checkpoint_path("./models", "VGG16_*.pth"))
+    model,_,_,_ = utils.load_model(model, None, 0.001, utils.latest_checkpoint_path("./checkpoints", "VGG16_*.pth"))
     #Set the model to eval mode
     model.eval()
     with torch.inference_mode():

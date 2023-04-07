@@ -67,7 +67,7 @@ def main():
   writer_eval = SummaryWriter(log_dir=".\logs\eval")
 
   epochs =30
-  module_dir = ".\models"
+  module_dir = ".\checkpoints"
 
   # Define the loss function and optimizer
   loss_fn = nn.CrossEntropyLoss()
