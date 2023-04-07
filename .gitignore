@@ -1,8 +1,9 @@
-data/*
+data/food-101.tar.gz
+data/food-101/*
 venv/
 __pycache__/
 models/*
 logs/*
-checkpoints/*
+checkpoints/*.pth
 reference/
 
