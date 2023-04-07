@@ -66,7 +66,7 @@ def main():
   writer = SummaryWriter(log_dir=".\logs")
   writer_eval = SummaryWriter(log_dir=".\logs\eval")
 
-  epochs =30
+  epochs =50
   module_dir = ".\checkpoints"
 
   # Define the loss function and optimizer
@@ -91,7 +91,7 @@ def main():
 
   # Define a learning rate scheduler
   # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
-  scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95, last_epoch=global_step -2)
+  scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95, last_epoch=epoch_str - 1)
 
   # start training loop
   for epoch in tqdm(range(epoch_str,epochs + 1)):

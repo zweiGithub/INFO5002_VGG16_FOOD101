@@ -11,7 +11,7 @@ def run_inference():
     #Load the class names
     class_names,class_idx = utils.find_classes("./data/food-101/images")
     #Target image
-    image_path = "./data/food-101/images/pancakes/1005649.jpg"
+    image_path = "./data/food-101/images/pancakes/7498.jpg"
     #Transforms
     transform = transforms.Compose([
         transforms.Resize(size = (224,224)),

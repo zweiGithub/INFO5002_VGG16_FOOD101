@@ -87,8 +87,7 @@ def display_random_image(
   if seed:
     random.seed(seed)
   random_samples_idx = random.sample(range(len(dataset)), num_images)
-  fig = plt.figure(figsize=(9, 9))
-  plt.axis("off")
+  fig = plt.figure(figsize=(40, 40))
   nrows = 3
   ncols = 3
   i = 0
@@ -105,7 +104,8 @@ def display_random_image(
       true_label = class_names[label]
     plt.subplot(nrows, ncols, i+1)
     plt.imshow(img.cpu().squeeze(0).permute(1, 2, 0))
-    plt.title(f"True label: {true_label} \n Predicted label: {pred_label} \n Predicted Label Probs: {torch.max(pred_probs).item():.2f}")
+    plt.title(f"True label: {true_label} \n Predicted label: {pred_label} \n Predicted Probs: {torch.max(pred_probs).item():.2f}", fontsize=10)
+    plt.axis("off")
     i += 1
   return fig
 
