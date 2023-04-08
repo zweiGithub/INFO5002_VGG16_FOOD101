@@ -39,7 +39,7 @@ def load_model(model:torch.nn.Module,
   
   assert os.path.isfile(save_path)
 
-  checkpoint_dict = torch.load(save_path,map_location="cpu")
+  checkpoint_dict = torch.load(save_path)
 
   iteration = checkpoint_dict['iteration']
   learning_rate = checkpoint_dict['learning_rate']

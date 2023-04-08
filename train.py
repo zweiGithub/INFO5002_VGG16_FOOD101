@@ -5,12 +5,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import models, transforms
-from torchvision.datasets import Food101
+from torchvision.transforms import ToTensor
+from torchvision.datasets import Food101, FashionMNIST
 from PIL import Image
 from torchmetrics import Accuracy
 from timeit import default_timer as timer
 from tqdm.auto import tqdm
-from modules import VGG16
+from modules import VGG16,TinyVGG
 from torch.cuda.amp import autocast, GradScaler
 from torch.utils.tensorboard import SummaryWriter
 import utils
@@ -26,7 +27,7 @@ def main():
   # Define the necessary data transforms
   train_transforms = transforms.Compose([
     transforms.Resize(size = (224,224)),
-    transforms.RandomHorizontalFlip(),
+    transforms.RandomHorizontalFlip(p=0.5),
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
   ])
@@ -39,17 +40,20 @@ def main():
   current_pwd = os.getcwd()
 
   # Download and load the Food 101 dataset
-  food_train = Food101(root=f'{current_pwd}/data', split='train', download=True, transform=train_transforms)
-  food_test = Food101(root=f'{current_pwd}/data', split='test', download=True, transform=val_transforms)
+  # food_train = Food101(root=f'{current_pwd}/data', split='train', download=True, transform=train_transforms)
+  # food_test = Food101(root=f'{current_pwd}/data', split='test', download=True, transform=val_transforms)
+  fashion_train = FashionMNIST(root=f'{current_pwd}/data', train=True, download=True, transform=ToTensor())
+  fashion_test = FashionMNIST(root=f'{current_pwd}/data', train=False, download=True, transform=ToTensor())
 
-  class_names,class_idx = utils.find_classes(f"{current_pwd}/data/food-101/images")
+  # class_names,class_idx = utils.find_classes(f"{current_pwd}/data/food-101/images")
+  class_names = fashion_train.classes
   # print(f"Class names: {len(class_names)}")
 
   num_workers = os.cpu_count()
 
   # Create the data loaders
-  train_loader = DataLoader(food_train,batch_size=BATCH_SIZE, shuffle=True,num_workers=num_workers)
-  test_loader = DataLoader(food_test, batch_size=BATCH_SIZE, shuffle=False,num_workers=num_workers)
+  train_loader = DataLoader(fashion_train,batch_size=BATCH_SIZE, shuffle=True,num_workers=num_workers)
+  test_loader = DataLoader(fashion_test, batch_size=BATCH_SIZE, shuffle=False,num_workers=num_workers)
   # Define accuracy function
   # accuracy_fn = Accuracy(task="multiclass", num_classes=len(class_names)).to(device)
   accuracy_fn = utils.accuracy_fn
@@ -63,7 +67,10 @@ def main():
   train_time_start = timer()
   global global_step
   #init the model
-  current_model = VGG16(num_classes=len(class_names)).to(device)
+  # current_model = VGG16(num_classes=len(class_names)).to(device)
+  # current_model = models.resnet50(num_classes=len(class_names)).to(device)
+  current_model = TinyVGG(input_shape=1,hidden_units=10,output_shape=len(class_names)).to(device)
+  
 
   writer = SummaryWriter(log_dir=f"{current_pwd}/logs")
   writer_eval = SummaryWriter(log_dir=f"{current_pwd}/logs/eval")
@@ -73,8 +80,8 @@ def main():
 
   # Define the loss function and optimizer
   loss_fn = nn.CrossEntropyLoss()
-  # optimizer = optim.SGD(current_model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
-  optimizer = optim.Adam(current_model.parameters(), lr=0.001)
+  optimizer = optim.SGD(current_model.parameters(), lr=0.001, momentum=0.9, weight_decay=5e-4)
+  # optimizer = optim.Adam(current_model.parameters(), lr=0.0001)
 
   try:
     # Load the latest checkpoint
@@ -92,8 +99,8 @@ def main():
     pass
 
   # Define a learning rate scheduler
-  # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
-  scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95, last_epoch=epoch_str - 1)
+  scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
+  # scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=1, last_epoch=epoch_str - 1)
 
   # start training loop
   for epoch in tqdm(range(epoch_str,epochs + 1)):
@@ -107,7 +114,7 @@ def main():
               scheduler=scheduler,
               model_dir=module_dir,
               writers=[writer,writer_eval],
-              datasets=food_test,
+              datasets=fashion_test,
               class_names=class_names)
 
     scheduler.step()
@@ -181,7 +188,7 @@ def train_and_evaluate(model: torch.nn.Module,
                 optimizer=optimizer,
                 learning_rate=scheduler.get_last_lr()[0],
                 iteration=epoch,
-                save_path=f"{model_dir}\{model.__class__.__name__}_{global_step}.pth")
+                save_path=f"{model_dir}/{model.__class__.__name__}_{global_step}.pth")
         global_step += 1
 
     # Divide total train loss by length of train dataloader

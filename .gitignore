@@ -1,5 +1,6 @@
 data/food-101.tar.gz
 data/food-101/*
+data/FashionMNIST/*
 venv/
 __pycache__/
 models/*
